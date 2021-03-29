@@ -1,0 +1,75 @@
+Disable-AzContextAutosave –Scope Process
+
+#Desactive el guardado automático de credenciales de Azure. La información de inicio de sesión se olvidará la próxima vez que abra una ventana de PowerShell‎
+
+$connection = Get-AutomationConnection -Name AzureRunAsConnection
+
+#El runbook o la configuración tienen acceso a las propiedades de una conexión mediante el cmdlet interno.‎Get-AutomationConnection
+
+
+
+$logonAttempt = 0
+
+while(!($connectionResult) -and ($logonAttempt -le 3))
+{
+    $LogonAttempt++
+ 
+    $connectionResult = Connect-AzAccount `
+                            -ServicePrincipal `
+                            -Tenant $connection.TenantID `
+                            -ApplicationId $connection.ApplicationID `
+                            -CertificateThumbprint $connection.CertificateThumbprint
+
+    Start-Sleep -Seconds 30
+}
+
+# El Loop while intenta autentificar 3 veces cada 30 segundos en caso que falle la primer conexion
+
+$TimeZoneStandar = Get-TimeZone -Name "Central Standard Time (Mexico)"
+
+#  Get-TimeZone obtiene la hora en determinada zona
+
+      
+$UTCNow = Get-Date
+
+#  Get-Date obtiene la hora fecha y hora en UTC
+
+$TimeZoneAdjusted = $UTCNow.AddHours($TimeZoneStandar.BaseUtcOffset.Hours)  
+
+#  AddHours. agrega las horas de diferencia entre UTC  y la zona ingresada 
+
+Write-Output $TimeZoneAdjusted
+
+# imprime en consola la hora ajustada 
+
+$TimeZoneShort = $TimeZoneAdjusted.ToString("HH:mm")
+
+# obtenemos el plan actual de la App Service
+
+
+$Plan = Get-AzAppServicePlan -ResourceGroupName "Medium" -Name "AppServicePlanAuto"
+
+# imprime en consola la hora ajustada 
+
+Write-Output $Plan.Sku.Size   
+
+# En este caso Valida si son las  7am  y el plan es estandar 
+
+#::::::::::::::::::::::::::::::::::::::::::::::::::INSTRUCCIONES PARA SUBIR Y BAJAR RECURSOS ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+if($Plan.Sku.Size -eq "Standard" -And $TimeZoneAdjusted.ToString("HH:mm") -like "07:*") {
+
+    Set-AzAppServicePlan -Name "Medium" -ResourceGroupName "Medium" -Tier "PremiumV2"  -WorkerSize "Small"
+#suber los recursos a PremiumV2
+
+    Write-Output "sube"
+}
+
+Write-Output $Plan.Sku.Size
+Write-Output $TimeZoneAdjusted.ToString("HH:mm") 
+
+
+ if($Plan.Sku.Size -eq "P1v2" -And $TimeZoneAdjusted.ToString("HH:mm") -like "23:*") {
+ Set-AzAppServicePlan -Name "Medium" -ResourceGroupName "Medium" -Tier "Standard"  -NumberofWorkers 1 -WorkerSize "Small"
+ Write-Output "bajar"
+}   
